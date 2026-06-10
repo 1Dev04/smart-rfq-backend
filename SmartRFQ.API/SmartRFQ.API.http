@@ -1,0 +1,6 @@
+@SmartRFQ.API_HostAddress = http://localhost:5137
+
+GET {{SmartRFQ.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
