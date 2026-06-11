@@ -31,8 +31,8 @@ public class MicrosoftController : ControllerBase
             // var tenantId = _config["AzureAd:TenantId"] ?? throw new Exception("ClientId not configured");
             var clientId = _config["AzureAd:ClientId"] ?? throw new Exception("ClientSecret not configured");
             var clientSecret = _config["AzureAd:ClientSecret"] ?? throw new Exception("TenantId not configured");
-            var redirectUri = _config["AzureAd:RedirectUri"]
-                  ?? "http://localhost:5173/auth/microsoft/callback";
+            var redirectUri = Environment.GetEnvironmentVariable("AzureAd__CallbackPath") 
+    ?? "http://localhost:5173/auth/microsoft/callback";
 
 
             var tenantId = _config["AzureAd:TenantId"] ?? throw new Exception("TenantId not configured");
