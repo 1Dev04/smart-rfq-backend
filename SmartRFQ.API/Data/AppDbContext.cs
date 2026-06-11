@@ -7,16 +7,17 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    public DbSet<AudioLogs> AuditLogs { get; set; } 
+    public DbSet<AudioLogs> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AudioLogs>(entity =>
-        {
-            entity.HasIndex(x => x.DateTime);
-            entity.HasIndex(x => x.E_User);
-            entity.HasIndex(x => x.RfqNo);
-            entity.HasIndex(x => x.Status);
-        });
+ {
+     entity.ToTable("AuditLogs");
+     entity.HasIndex(x => x.DateTime);
+     entity.HasIndex(x => x.E_User);
+     entity.HasIndex(x => x.RfqNo);
+     entity.HasIndex(x => x.Status);
+ });
     }
 }
