@@ -6,6 +6,7 @@ using SmartRFQ.API.Data;
 
 System.Globalization.CultureInfo.DefaultThreadCurrentCulture =
     System.Globalization.CultureInfo.InvariantCulture;
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
