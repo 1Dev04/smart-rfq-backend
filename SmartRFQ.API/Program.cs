@@ -56,10 +56,6 @@ if (app.Environment.IsDevelopment())
 }
 app.UseCors("AllowFrontend");
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
 
 app.UseResponseCaching();
 app.UseRateLimiter(); 
