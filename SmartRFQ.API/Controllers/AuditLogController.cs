@@ -26,7 +26,7 @@ public class AuditLogController : ControllerBase
     [ResponseCache(Duration = 30, VaryByQueryKeys = new[] { "*" })]
     public async Task<IActionResult> GetLogs([FromQuery] AuditLogQuery query)
     {
-        var q = _db.AuditLogs
+        var q = _db.AudioLogs
         .AsNoTracking()
         .AsQueryable();
 
@@ -72,7 +72,7 @@ public class AuditLogController : ControllerBase
     public async Task<IActionResult> SeedData()
     {
 
-        _db.AuditLogs.RemoveRange(_db.AuditLogs);
+        _db.AudioLogs.RemoveRange(_db.AudioLogs);
         await _db.SaveChangesAsync();
 
 
@@ -105,7 +105,7 @@ public class AuditLogController : ControllerBase
         new() { RfqNo="RFQ-2606013", Status="Waiting", Role="user",     E_User="user.c@itg.co.th", E_Purchaser="purchase.b@itg.co.th", Remark="Created new RFQ",       DateTime=DateTime.Parse("2026-06-07 13:00:00") },
     };
 
-        await _db.AuditLogs.AddRangeAsync(logs);
+        await _db.AudioLogs.AddRangeAsync(logs);
         await _db.SaveChangesAsync();
         return Ok(new { message = "Seeded successfully", count = logs.Count });
     }

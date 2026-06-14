@@ -1,4 +1,4 @@
-namespace SmartRFQ.API.DTOs;
+namespace SmartRFQ.API.Models;
 
 public class AuditLogQuery{
     public DateTime? DateFrom {get; set;}
