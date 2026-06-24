@@ -34,6 +34,11 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder
 // Auth Service 
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Register DI
+builder.Services.AddScoped<IDocRequestService, DocRequestService>();
+builder.Services.AddScoped<IAuditLogService,   AuditLogService>();
+
+
 //  JWT OAuth
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -59,8 +64,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero,
         };
     });
-
-
 
 // Core
 builder.Services.AddCors(options =>

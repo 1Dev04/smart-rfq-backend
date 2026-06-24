@@ -5,7 +5,8 @@ namespace SmartRFQ.API.DTOs;
 
 public record LoginDto(
     [Required, EmailAddress] string Email,
-    [Required, MinLength(4), MaxLength(6)] string Password 
+    [Required, MinLength(4), MaxLength(6)] string Password,
+    bool RememberMe = false
 );
 
 public class StrongPasswordAttribute : ValidationAttribute

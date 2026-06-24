@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.RateLimiting;
 
 using SmartRFQ.API.Data;
-using SmartRFQ.API.DTOs;
 using SmartRFQ.API.Models;
 
 namespace SmartRFQ.API.Controllers;
@@ -76,7 +75,7 @@ public class AuditLogController : ControllerBase
         await _db.SaveChangesAsync();
 
 
-        var logs = new List<AudioLogs>
+        var logs = new List<AuditLogs>
     {
         new() { RfqNo="RFQ-2606001", Status="Waiting", Role="user",     E_User="user.a@itg.co.th", E_Purchaser="purchase.a@itg.co.th", Remark="Created new RFQ",       DateTime=DateTime.Parse("2026-06-01 08:12:33") },
         new() { RfqNo="RFQ-2606001", Status="Accept",  Role="purchase", E_User="user.a@itg.co.th", E_Purchaser="purchase.a@itg.co.th", Remark="Accepted by purchase",   DateTime=DateTime.Parse("2026-06-01 10:30:44") },

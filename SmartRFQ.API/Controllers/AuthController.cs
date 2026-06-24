@@ -18,14 +18,14 @@ public class AuthController(IAuthService auth) : ControllerBase
     {
         var (user, error) = await auth.LoginAsync(dto, Response);
         if (error is not null)
-            return Unauthorized(new { message = error});
+            return Unauthorized(new { message = error });
         return Ok(user);
     }
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh()
     {
         var ok = await auth.RefreshAsync(Request, Response);
-        return ok ? Ok() : Unauthorized(new { message = "Session expired."});
+        return ok ? Ok() : Unauthorized(new { message = "Session expired." });
     }
 
     [HttpPost("logout")]
@@ -33,7 +33,11 @@ public class AuthController(IAuthService auth) : ControllerBase
     public async Task<IActionResult> Logout()
     {
         await auth.RevokeAsync(Request, Response);
-        return Ok(new { message = "Logged out."});
+        return Ok(new
+        {
+            message = "Logged out.",
+            clearStorage = new[] { "rfq_auth_token", "rfq_dark", "rfq_theme" }
+        });
     }
 
     [HttpGet("me")]
@@ -43,4 +47,17 @@ public class AuthController(IAuthService auth) : ControllerBase
         User.FindFirstValue(ClaimTypes.Email)!,
         User.FindFirstValue(ClaimTypes.Role)!
     ));
+
+    [ApiController]
+    [Route("api/auditlog")]
+    [Authorize(Roles = "admin,purchaser")]   
+    public class AuditLogController(IAuditLogService auditSvc) : ControllerBase
+    {
+        [HttpGet]
+        public async Task<IActionResult> Get([FromQuery] AuditLogQueryDto query)
+        {
+            var (data, total) = await auditSvc.GetAsync(query);
+            return Ok(new { data, total });
+        }
+    }
 }
