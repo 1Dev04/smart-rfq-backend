@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace SmartRFQ.API.Models;
 
 public class DocRequestItem
@@ -40,5 +42,14 @@ public class DocRequestItem
     public string? AttachQuotationPath { get; set; }
     public string? AttachEtcPath { get; set; }
 
+    public int? LeadTimeDays { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [NotMapped]
+    public DateTime? PurchaseStartDate =>
+        TargetPURreply.HasValue && LeadTimeDays.HasValue
+            ? TargetPURreply.Value.AddDays(-LeadTimeDays.Value)
+            : null;
 }

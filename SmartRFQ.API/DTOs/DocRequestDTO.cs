@@ -84,5 +84,9 @@ public record DocRequestQueryDto(
     string? Search,
     string? Status,
     int Page = 1,
-    int PageSize = 20
+    int PageSize = 10
+);
+
+public record AcceptDocRequestDto(
+    Dictionary<int, int> ItemLeadTimes  
 );

@@ -9,8 +9,11 @@ public interface IDocRequestService
 {
     Task<(int id, string rfqNo)> CreateAsync(List<CreateDocRequestItemDto> items, Guid requesterId);
     Task<DocRequestListResponseDto> GetAllAsync(Guid userId, string role, DocRequestQueryDto query);
-    Task<string> AcceptAsync(int docRequestId, Guid purchaserId);
+    Task<string> AcceptAsync(int docRequestId, Guid purchaserId, AcceptDocRequestDto dto);
+
     Task<(string rfqNo, string newRev)> RejectAsync(int docRequestId);
+
+
 }
 
 public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocRequestService
@@ -19,7 +22,7 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
     private async Task<string> GenerateRfqNoAsync()
     {
         var prefix = $"RFQ-{DateTime.UtcNow:yyMM}";
-        var count  = await db.DocRequests.CountAsync(d => d.RfqNo.StartsWith(prefix));
+        var count = await db.DocRequests.CountAsync(d => d.RfqNo.StartsWith(prefix));
         return $"{prefix}{(count + 1):D3}"; // RFQ-2606001
     }
 
@@ -49,46 +52,46 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
     {
         var doc = new DocRequest
         {
-            RfqNo       = await GenerateRfqNoAsync(),
-            RevNo       = "Rev.00",
-            Status      = "user_fill",
+            RfqNo = await GenerateRfqNoAsync(),
+            RevNo = "Rev.00",
+            Status = "user_fill",
             RequesterId = requesterId,
-            CreatedAt   = DateTime.UtcNow,
-            UpdatedAt   = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
         };
 
         foreach (var dto in items)
         {
             doc.Items.Add(new DocRequestItem
             {
-                TargetPURreply      = DateTime.TryParse(dto.TargetPURreply, out var d)
+                TargetPURreply = DateTime.TryParse(dto.TargetPURreply, out var d)
                                         ? d.ToUniversalTime() : null,
-                ProjectName         = dto.ProjectName.Trim(),
-                GlCode              = dto.GlCode.Trim(),
-                SapItem             = dto.SapItem?.Trim(),
-                ItemDescription     = dto.ItemDescription.Trim(),
-                SpecPartNo          = dto.SpecPartNo.Trim(),
-                Model               = dto.Model?.Trim(),
-                Brand               = dto.Brand.Trim(),
-                ForGas              = dto.ForGas.Trim(),
-                Type                = dto.Type.Trim(),
-                SpecPurity          = dto.SpecPurity.Trim(),
-                CylinderType        = dto.CylinderType.Trim(),
-                Quantity            = dto.Quantity,
-                Uom                 = dto.Uom.Trim(),
-                CylinderSize        = dto.CylinderSize.Trim(),
-                MakerSource         = dto.MakerSource.Trim(),
-                RequiredValve       = dto.RequiredValve.Trim(),
-                PurposeApplication  = dto.PurposeApplication.Trim(),
-                Customer            = dto.Customer.Trim(),
-                AddressLocation     = dto.AddressLocation.Trim(),
-                RecommendVendor     = dto.RecommendVendor.Trim(),
-                Remark              = dto.Remark.Trim(),
-                AttachDwgPath       = await SaveFileAsync(dto.AttachDWG,       "dwg"),
-                AttachSpecPath      = await SaveFileAsync(dto.AttachSpec,      "spec"),
+                ProjectName = dto.ProjectName.Trim(),
+                GlCode = dto.GlCode.Trim(),
+                SapItem = dto.SapItem?.Trim(),
+                ItemDescription = dto.ItemDescription.Trim(),
+                SpecPartNo = dto.SpecPartNo.Trim(),
+                Model = dto.Model?.Trim(),
+                Brand = dto.Brand.Trim(),
+                ForGas = dto.ForGas.Trim(),
+                Type = dto.Type.Trim(),
+                SpecPurity = dto.SpecPurity.Trim(),
+                CylinderType = dto.CylinderType.Trim(),
+                Quantity = dto.Quantity,
+                Uom = dto.Uom.Trim(),
+                CylinderSize = dto.CylinderSize.Trim(),
+                MakerSource = dto.MakerSource.Trim(),
+                RequiredValve = dto.RequiredValve.Trim(),
+                PurposeApplication = dto.PurposeApplication.Trim(),
+                Customer = dto.Customer.Trim(),
+                AddressLocation = dto.AddressLocation.Trim(),
+                RecommendVendor = dto.RecommendVendor.Trim(),
+                Remark = dto.Remark.Trim(),
+                AttachDwgPath = await SaveFileAsync(dto.AttachDWG, "dwg"),
+                AttachSpecPath = await SaveFileAsync(dto.AttachSpec, "spec"),
                 AttachQuotationPath = await SaveFileAsync(dto.AttachQuotation, "quotation"),
-                AttachEtcPath       = await SaveFileAsync(dto.AttachEtc,       "etc"),
-                CreatedAt           = DateTime.UtcNow,
+                AttachEtcPath = await SaveFileAsync(dto.AttachEtc, "etc"),
+                CreatedAt = DateTime.UtcNow,
             });
         }
 
@@ -102,6 +105,8 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
     public async Task<DocRequestListResponseDto> GetAllAsync(
         Guid userId, string role, DocRequestQueryDto query)
     {
+        
+
         var q = db.DocRequests
             .Include(r => r.Requester)
             .Include(r => r.Purchaser)
@@ -109,7 +114,6 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
             .AsNoTracking()
             .AsQueryable();
 
-        // User เห็นเฉพาะของตัวเอง, Purchase/Admin เห็นทั้งหมด
         if (role == "user")
             q = q.Where(r => r.RequesterId == userId);
 
@@ -135,7 +139,6 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
             .Take(query.PageSize)
             .ToListAsync();
 
-        // Flatten: 1 DocRequest → N rows
         var rows = new List<DocRequestListRowDto>();
         foreach (var doc in docs)
         {
@@ -144,23 +147,21 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
             {
                 var item = itemList[idx];
 
-                // คำนวณ lead time จาก TargetPURreply - CreatedAt
-                int? leadDays = item.TargetPURreply.HasValue
-                    ? (int)(item.TargetPURreply.Value - doc.CreatedAt).TotalDays
-                    : null;
+                // ✅ ใช้ค่าที่ Purchase กำหนดไว้ — ลบการคำนวณเดิมออก
+                int? leadDays = item.LeadTimeDays;
 
                 rows.Add(new DocRequestListRowDto(
-                    CreatedAt:        doc.CreatedAt.ToString("dd/MM/yy"),
-                    RfqNo:            doc.RfqNo,
-                    DocRequestId:     doc.Id,
-                    ItemType:         item.Type,
-                    ItemDescription:  item.ItemDescription,
-                    Quantity:         item.Quantity,
-                    Uom:              item.Uom,
-                    Status:           doc.Status,
-                    RequesterEmail:   doc.Requester.Email,
-                    PurchaserEmail:   doc.Purchaser?.Email,
-                    LeadTimeDays:     leadDays,
+                    CreatedAt: doc.CreatedAt.ToString("dd/MM/yy"),
+                    RfqNo: doc.RfqNo,
+                    DocRequestId: doc.Id,
+                    ItemType: item.Type,
+                    ItemDescription: item.ItemDescription,
+                    Quantity: item.Quantity,
+                    Uom: item.Uom,
+                    Status: doc.Status,
+                    RequesterEmail: doc.Requester.Email,
+                    PurchaserEmail: doc.Purchaser?.Email,
+                    LeadTimeDays: leadDays,
                     IsFirstItemOfRfq: idx == 0
                 ));
             }
@@ -168,24 +169,32 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
 
         return new DocRequestListResponseDto(rows, total, query.Page, query.PageSize);
     }
-
     // ── ACCEPT ───────────────────────────────────────────────────
-    public async Task<string> AcceptAsync(int docRequestId, Guid purchaserId)
+    public async Task<string> AcceptAsync(int docRequestId, Guid purchaserId, AcceptDocRequestDto dto)
     {
-        var doc = await db.DocRequests.FindAsync(docRequestId)
+        var doc = await db.DocRequests
+            .Include(d => d.Items)
+            .FirstOrDefaultAsync(d => d.Id == docRequestId)
             ?? throw new KeyNotFoundException("ไม่พบ RFQ");
 
         if (doc.Status != "user_fill")
             throw new InvalidOperationException($"ไม่สามารถ Accept ได้ สถานะปัจจุบัน: {doc.Status}");
 
-        doc.Status      = "purchase_accept";
+        doc.Status = "purchase_accept";
         doc.PurchaserId = purchaserId;
-        doc.UpdatedAt   = DateTime.UtcNow;
-        await db.SaveChangesAsync();
+        doc.UpdatedAt = DateTime.UtcNow;
 
+        foreach (var item in doc.Items)
+        {
+            if (dto.ItemLeadTimes.TryGetValue(item.Id, out var leadDays))
+                item.LeadTimeDays = leadDays;   // ← Purchase กำหนด lead time ต่อ item
+
+            item.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
         return doc.RfqNo;
     }
-
     // ── REJECT ───────────────────────────────────────────────────
     public async Task<(string rfqNo, string newRev)> RejectAsync(int docRequestId)
     {
@@ -193,11 +202,14 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
             ?? throw new KeyNotFoundException("ไม่พบ RFQ");
 
         var currentRev = int.TryParse(doc.RevNo.Replace("Rev.", ""), out var r) ? r : 0;
-        doc.RevNo     = $"Rev.{(currentRev + 1):D2}";
-        doc.Status    = "user_fill";
+        doc.RevNo = $"Rev.{(currentRev + 1):D2}";
+        doc.Status = "user_fill";
         doc.UpdatedAt = DateTime.UtcNow;
+
         await db.SaveChangesAsync();
 
         return (doc.RfqNo, doc.RevNo);
     }
+
+
 }

@@ -41,18 +41,27 @@ public class DocRequestController(IDocRequestService svc) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetList([FromQuery] DocRequestQueryDto query)
     {
-        var result = await svc.GetAllAsync(CurrentUserId, CurrentUserRole, query);
-        return Ok(result);
+        try
+        {
+            var result = await svc.GetAllAsync(CurrentUserId, CurrentUserRole, query);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
     }
 
     // POST /api/doc-request/accept
-    [HttpPost("accept")]
-    public async Task<IActionResult> Accept([FromBody] DocRequestActionDto dto)
+    // POST /api/doc-request/{id}/accept
+    [HttpPost("{id}/accept")]
+    public async Task<IActionResult> Accept(int id, [FromBody] AcceptDocRequestDto dto)
     {
         try
         {
-            var rfqNo = await svc.AcceptAsync(dto.Id, CurrentUserId);
-            return Ok(new { message = "Accepted", rfqNo });
+
+            var rfqNo = await svc.AcceptAsync(id, CurrentUserId, dto);
+            return Ok(new { rfqNo, message = "RFQ accepted" });
         }
         catch (KeyNotFoundException ex)
         {
