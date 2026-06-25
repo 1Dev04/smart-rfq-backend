@@ -105,7 +105,7 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
     public async Task<DocRequestListResponseDto> GetAllAsync(
         Guid userId, string role, DocRequestQueryDto query)
     {
-        
+
 
         var q = db.DocRequests
             .Include(r => r.Requester)
@@ -149,9 +149,17 @@ public class DocRequestService(AppDbContext db, IWebHostEnvironment env) : IDocR
 
                 // ✅ ใช้ค่าที่ Purchase กำหนดไว้ — ลบการคำนวณเดิมออก
                 int? leadDays = item.LeadTimeDays;
-
+                var thaiZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok");
                 rows.Add(new DocRequestListRowDto(
-                    CreatedAt: doc.CreatedAt.ToString("dd/MM/yy"),
+
+
+                    CreatedAt: TimeZoneInfo.ConvertTimeFromUtc(doc.CreatedAt, thaiZone)
+                           .ToString("dd/MM/yy HH:mm"),
+
+                    UpdatedAt: doc.UpdatedAt != doc.CreatedAt
+    ? TimeZoneInfo.ConvertTimeFromUtc(doc.UpdatedAt, thaiZone)
+          .ToString("dd/MM/yy HH:mm")
+    : null,
                     RfqNo: doc.RfqNo,
                     DocRequestId: doc.Id,
                     ItemType: item.Type,

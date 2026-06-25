@@ -40,6 +40,7 @@ public class CreateDocRequestItemDto
 
 public record DocRequestListRowDto(
     string CreatedAt,           // วันที่ขอ
+    string? UpdatedAt,
     string RfqNo,               // RFQ No. (link)
     int DocRequestId,           // สำหรับ click เปิด drawer
     string ItemType,            // Item Type
