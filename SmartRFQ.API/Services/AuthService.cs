@@ -17,7 +17,6 @@ public interface IAuthService
 }
 
 
-
 public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
 {
     private CookieOptions AccessCookieOpts => new()
