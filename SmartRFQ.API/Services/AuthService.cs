@@ -24,14 +24,14 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
     {
         HttpOnly = true,
         Secure = true,
-        SameSite = SameSiteMode.Strict,
+        SameSite = SameSiteMode.None,
         Expires = DateTime.UtcNow.AddHours(8)
     };
     private CookieOptions RefreshCookieOpts(bool rememberMe) => new()
     {
         HttpOnly = true,
         Secure = true,
-        SameSite = SameSiteMode.Strict,
+        SameSite = SameSiteMode.None,
         Expires = rememberMe
         ? DateTime.UtcNow.AddDays(30)
         : null,
