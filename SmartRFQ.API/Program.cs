@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -6,7 +7,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using SmartRFQ.API.Data;
 using SmartRFQ.API.Services;
-
+using CloudinaryDotNet;
 
 System.Globalization.CultureInfo.DefaultThreadCurrentCulture =
     System.Globalization.CultureInfo.InvariantCulture;
@@ -14,7 +15,6 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-
 
 builder.Services.AddControllers()
     .AddJsonOptions(opt =>
@@ -29,41 +29,72 @@ builder.Services.AddResponseCaching();
 builder.Services.AddHttpClient();
 
 // Database
-builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContextPool<AppDbContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorCodesToAdd: null)));
+
+// ── Cloudinary ── (FIX: DocRequestService constructor now takes a Cloudinary
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var account = new Account(
+        config["Cloudinary:CloudName"],
+        config["Cloudinary:ApiKey"],
+        config["Cloudinary:ApiSecret"]
+    );
+    return new Cloudinary(account);
+});
 
 // Auth Service 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Register DI
-builder.Services.AddScoped<IDocRequestService, DocRequestService>();
 builder.Services.AddScoped<IAuditLogService,   AuditLogService>();
-
+builder.Services.AddScoped<IBusinessDayCalculator, BusinessDayCalculator>();
 
 //  JWT OAuth
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddSingleton<JwtService>();
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    var jwtKey = builder.Configuration["Jwt:Key"]!;
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.Events = new JwtBearerEvents
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(jwtKey)),
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
         {
-            OnMessageReceived = ctx =>
+            if (context.Request.Cookies.ContainsKey("access_token"))
             {
-                ctx.Token = ctx.Request.Cookies["access_token"];
-                return Task.CompletedTask;
+                var token = context.Request.Cookies["access_token"];
+                if (!string.IsNullOrEmpty(token)) context.Token = token;
             }
-        };
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
-            ClockSkew = TimeSpan.Zero,
-        };
-    });
+            return Task.CompletedTask;
+        }
+    };
+});
+
+builder.Services.AddAuthorization();
 
 // Core
 builder.Services.AddCors(options =>
@@ -73,10 +104,19 @@ builder.Services.AddCors(options =>
                 "http://localhost:5173",
                 "https://smart-rfq-th.netlify.app"
             )
+            .AllowCredentials()
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials());
+            .AllowAnyMethod());
+    
 });
+
+builder.Services.AddHttpClient("Gemini", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(180);
+});
+
+
+builder.Services.AddScoped<IDocRequestService, DocRequestService>();
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -110,8 +150,9 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseResponseCaching();
 app.UseRateLimiter();
-app.UseAuthentication();
+app.UseAuthentication(); 
 app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
+app.UseStaticFiles();
 app.Run();

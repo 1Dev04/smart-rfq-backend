@@ -2,7 +2,7 @@
 using System.IO.Compression;
 using Microsoft.EntityFrameworkCore;
 using SmartRFQ.API.Models;
-
+using System.Globalization;
 namespace SmartRFQ.API.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
@@ -16,6 +16,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<GLCodes> GLCodes => Set<GLCodes>();
     public DbSet<SapCodes> SapCodes => Set<SapCodes>();
+    public DbSet<Holiday> Holidays => Set<Holiday>();
+
+    public DbSet<VendorQuote> VendorQuotes => Set<VendorQuote>();
 
     public DbSet<DocRequestItem> DocRequestItems => Set<DocRequestItem>();
 
@@ -99,11 +102,44 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
 
         });
-          b.Entity<SapCodes>(e =>
-   {
-       e.ToTable("SAP_CodeList");
-   });
+        b.Entity<SapCodes>(e =>
+ {
+     e.ToTable("SAP_CodeList");
 
+
+ });
+        b.Entity<SapCodes>(e =>
+        {
+            e.ToTable("SAP_CodeList");
+        });
+
+        // ── VendorQuote: คอลัมน์เหล่านี้เก็บเป็น text ใน DB จริง
+        //    (ของเดิมสร้างมาแบบนั้น) แต่ C# ใช้ decimal? — สอน EF
+        //    ให้แปลงอัตโนมัติทั้งขาเข้า-ขาออก ครั้งเดียวจบทุก query ──
+        b.Entity<VendorQuote>(e =>
+        {
+            e.ToTable("VendorQuotes");
+            e.HasIndex(x => x.DocRequestItemId);
+            e.HasOne(v => v.DocRequestItem)
+                .WithMany(i => i.VendorQuotes)
+                .HasForeignKey(v => v.DocRequestItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Map numeric fields to the DB numeric type. The database currently defines
+            // Price/Discount/FinalPrice/FinalDiscount as numeric, so remove any
+            // string conversions and ensure EF writes numeric values.
+            e.Property(v => v.Price)
+                .HasColumnType("numeric");
+
+            e.Property(v => v.Discount)
+                .HasColumnType("numeric");
+
+            e.Property(v => v.FinalPrice)
+                .HasColumnType("numeric");
+
+            e.Property(v => v.FinalDiscount)
+                .HasColumnType("numeric");
+        });
     }
 }
 

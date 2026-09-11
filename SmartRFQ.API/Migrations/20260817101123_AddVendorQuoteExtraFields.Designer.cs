@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartRFQ.API.Data;
@@ -11,9 +12,11 @@ using SmartRFQ.API.Data;
 namespace SmartRFQ.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260817101123_AddVendorQuoteExtraFields")]
+    partial class AddVendorQuoteExtraFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -433,9 +436,6 @@ namespace SmartRFQ.API.Migrations
                     b.Property<string>("BuyerEmail")
                         .HasColumnType("text");
 
-                    b.Property<string>("CostSavingReason")
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -444,18 +444,6 @@ namespace SmartRFQ.API.Migrations
 
                     b.Property<int>("DocRequestItemId")
                         .HasColumnType("integer");
-
-                    b.Property<decimal?>("FinalDiscount")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("FinalPrice")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FinalQuotationFilePath")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FinalRemark")
-                        .HasColumnType("text");
 
                     b.Property<bool>("IsRecommended")
                         .HasColumnType("boolean");

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using SmartRFQ.API.Data;
 using SmartRFQ.API.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace SmartRFQ.API.Controllers;
@@ -9,6 +10,7 @@ namespace SmartRFQ.API.Controllers;
 
 [ApiController]
 [Route("api/doc-request")]
+
 public class SapCodeController(AppDbContext db) : ControllerBase
 {
      [HttpGet("sap-item")]

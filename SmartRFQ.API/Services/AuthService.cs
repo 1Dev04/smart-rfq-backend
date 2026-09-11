@@ -44,7 +44,7 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
         if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             return (null, "Invalid email or password");
 
-        SetTokenCookies(user, res, dto.RememberMe);
+        await SetTokenCookiesAsync(user, res, dto.RememberMe);
 
         return (new AuthResponseDto(user.FullName, user.Email, user.Role), null);
     }
@@ -64,7 +64,7 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
         // revoke
         stored.IsRevoked = true;
         bool rememberMe = stored.Expires > DateTime.UtcNow.AddDays(1);
-        SetTokenCookies(stored.User, res, rememberMe);
+        await SetTokenCookiesAsync(stored.User, res, rememberMe);
         await db.SaveChangesAsync();
         return true;
     }
@@ -84,12 +84,12 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
     }
 
     // Helper
-    private void SetTokenCookies(User user, HttpResponse res, bool rememberMe)
+    private async Task SetTokenCookiesAsync(User user, HttpResponse res, bool rememberMe)
     {
         var jwt = GenerateJwt(user);
         var refreshExpiry = rememberMe
             ? DateTime.UtcNow.AddDays(30)
-            : DateTime.UtcNow.AddHours(8); 
+            : DateTime.UtcNow.AddHours(8);
 
         var refresh = new RefreshToken
         {
@@ -99,7 +99,7 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
         };
 
         db.RefreshTokens.Add(refresh);
-        db.SaveChanges();
+        await db.SaveChangesAsync();
 
         res.Cookies.Append("access_token", jwt, AccessCookieOpts);
         res.Cookies.Append("refresh_token", refresh.Token, RefreshCookieOpts(rememberMe));

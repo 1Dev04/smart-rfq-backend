@@ -15,7 +15,6 @@ public interface IAuditLogService
 
 public class AuditLogService(AppDbContext db) : IAuditLogService
 {
-
     public async Task LogAsync(
         string rfqNo,
         string status,
@@ -52,8 +51,9 @@ public class AuditLogService(AppDbContext db) : IAuditLogService
             query = query.Where(a => a.E_Purchaser.Contains(q.E_Purchaser)); 
         if (!string.IsNullOrEmpty(q.RfqNo))
             query = query.Where(a => a.RfqNo.Contains(q.RfqNo));
+
         if (!string.IsNullOrEmpty(q.Status))
-            query = query.Where(a => a.Status == q.Status);              
+            query = query.Where(a => a.Status == q.Status); // status=error จะได้ error record ทั้งหมดเช่นเดียวกับ status อื่นๆ
 
         var total = await query.CountAsync();
 

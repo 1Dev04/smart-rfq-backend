@@ -11,29 +11,26 @@ public class AuditLogs
 {
     [Key]
     public int Id { get; set; }
-
-    // RFQ reference
+    
     public int?   DocRequestId { get; set; }
 
     [MaxLength(30)]
     public string RfqNo  { get; set; } = "";
 
-    // Action / Status
     [MaxLength(20)]
-    public string Status { get; set; } = "";   // Waiting|Accept|Resent|Cancel|Create
-
-    // Who did it
+    public string Status { get; set; } = "";   
+   
     [MaxLength(20)]
-    public string Role   { get; set; } = "";   // User | Purchase | Admin
+    public string Role   { get; set; } = "";   
 
     [MaxLength(100)]
-    public string E_User { get; set; } = "";   // email ของคนทำ
+    public string E_User { get; set; } = "";   
 
     [MaxLength(100)]
-    public string E_Purchaser { get; set; } = ""; // email purchaser
+    public string E_Purchaser { get; set; } = ""; 
 
     [MaxLength(255)]
-    public string Remark { get; set; } = "";   // note/remark
+    public string Remark { get; set; } = "";  
 
     public DateTime DateTime { get; set; } = DateTime.UtcNow;
 }

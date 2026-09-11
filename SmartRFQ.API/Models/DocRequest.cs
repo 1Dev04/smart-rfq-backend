@@ -5,8 +5,12 @@ public class DocRequest
     public int Id { get; set; }
     public string RfqNo { get; set; } = "";
     public string RevNo { get; set; } = "Rev.00";
-    public string Status { get; set; } = "user_fill";
+    public string Status { get; set; } = "user_pending";
     public int? LeadTime { get; set; }
+    public string? RejectReason { get; set; }
+    public DateTime? RejectedAt { get; set; }
+    public DateTime? AcceptedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
 
 
     // FK
@@ -16,9 +20,12 @@ public class DocRequest
     public User? Purchaser { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
-      public ICollection<DocRequestItem> Items { get; set; } = new List<DocRequestItem>();
+    public ICollection<DocRequestItem> Items { get; set; } = new List<DocRequestItem>();
+
+    public DateTime? ActualPurReplyDate { get; set; }
+
 }
 
 public class GLCode
@@ -29,4 +36,5 @@ public class GLCode
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
 }

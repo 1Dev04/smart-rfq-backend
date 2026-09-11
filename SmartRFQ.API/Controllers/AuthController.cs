@@ -50,7 +50,7 @@ public class AuthController(IAuthService auth) : ControllerBase
 
     [ApiController]
     [Route("api/auditlog")]
-    [Authorize(Roles = "admin,purchaser")]   
+    [Authorize(Roles = "admin,purchase")]   
     public class AuditLogController(IAuditLogService auditSvc) : ControllerBase
     {
         [HttpGet]

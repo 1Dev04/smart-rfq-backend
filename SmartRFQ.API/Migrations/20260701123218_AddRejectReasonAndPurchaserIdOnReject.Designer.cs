@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartRFQ.API.Data;
@@ -11,9 +12,11 @@ using SmartRFQ.API.Data;
 namespace SmartRFQ.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260701123218_AddRejectReasonAndPurchaserIdOnReject")]
+    partial class AddRejectReasonAndPurchaserIdOnReject
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,16 +33,7 @@ namespace SmartRFQ.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("AcceptedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime?>("ActualPurReplyDate")
-                        .HasColumnType("timestamp without time zone");
-
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime?>("FinishedAt")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<int?>("LeadTime")
@@ -50,9 +44,6 @@ namespace SmartRFQ.API.Migrations
 
                     b.Property<string>("RejectReason")
                         .HasColumnType("text");
-
-                    b.Property<DateTime?>("RejectedAt")
-                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("RequesterId")
                         .HasColumnType("uuid");
@@ -69,7 +60,7 @@ namespace SmartRFQ.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("UpdatedAt")
+                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
@@ -223,9 +214,6 @@ namespace SmartRFQ.API.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
-                    b.Property<string>("QuotationPdfPath")
-                        .HasColumnType("text");
-
                     b.Property<string>("RecommendVendor")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -261,7 +249,7 @@ namespace SmartRFQ.API.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<DateTime?>("UpdatedAt")
+                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
@@ -299,29 +287,6 @@ namespace SmartRFQ.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("GL_CodeList", (string)null);
-                });
-
-            modelBuilder.Entity("SmartRFQ.API.Models.Holiday", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateOnly>("HolidayDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Holidays");
                 });
 
             modelBuilder.Entity("SmartRFQ.API.Models.RefreshToken", b =>
@@ -422,81 +387,6 @@ namespace SmartRFQ.API.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
-            modelBuilder.Entity("SmartRFQ.API.Models.VendorQuote", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("BuyerEmail")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CostSavingReason")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<decimal?>("Discount")
-                        .HasColumnType("numeric");
-
-                    b.Property<int>("DocRequestItemId")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("FinalDiscount")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("FinalPrice")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FinalQuotationFilePath")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FinalRemark")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsRecommended")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsUserSelected")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("ItemDescription")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Model")
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("Price")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("QuotationFilePath")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Remark")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SpecPartNo")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("UserDiffReason")
-                        .HasColumnType("text");
-
-                    b.Property<string>("VendorName")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DocRequestItemId");
-
-                    b.ToTable("VendorQuotes");
-                });
-
             modelBuilder.Entity("DocRequest", b =>
                 {
                     b.HasOne("SmartRFQ.API.Models.User", "Purchaser")
@@ -537,25 +427,9 @@ namespace SmartRFQ.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("SmartRFQ.API.Models.VendorQuote", b =>
-                {
-                    b.HasOne("SmartRFQ.API.Models.DocRequestItem", "DocRequestItem")
-                        .WithMany("VendorQuotes")
-                        .HasForeignKey("DocRequestItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("DocRequestItem");
-                });
-
             modelBuilder.Entity("DocRequest", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("SmartRFQ.API.Models.DocRequestItem", b =>
-                {
-                    b.Navigation("VendorQuotes");
                 });
 
             modelBuilder.Entity("SmartRFQ.API.Models.User", b =>
