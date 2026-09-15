@@ -12,9 +12,11 @@ namespace SmartRFQ.API.Services;
 public interface IAuthService
 {
     Task<(AuthResponseDto? user, string? error)> LoginAsync(LoginDto dto, HttpResponse response);
-    Task<bool> RefreshAsync(HttpRequest request, HttpResponse response);
+    Task<(bool ok, string? token)> RefreshAsync(HttpRequest request, HttpResponse response); // แก้ signature
     Task RevokeAsync(HttpRequest request, HttpResponse response);
 }
+
+public record AuthResponseDto(string FullName, string Email, string Role, string? Token = null); 
 
 
 public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
@@ -56,37 +58,33 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
     };
 
     // Login 
-    public async Task<(AuthResponseDto?, string?)> LoginAsync(LoginDto dto, HttpResponse res)
-    {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && u.IsActive);
-        if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-            return (null, "Invalid email or password");
+  public async Task<(AuthResponseDto?, string?)> LoginAsync(LoginDto dto, HttpResponse res)
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && u.IsActive);
+    if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        return (null, "Invalid email or password");
 
-        var jwt = await SetTokenCookiesAsync(user, res, dto.RememberMe);
+    var jwt = await SetTokenCookiesAsync(user, res, dto.RememberMe);
 
-  
-        return (new AuthResponseDto(user.FullName, user.Email, user.Role), null);
-    }
+    return (new AuthResponseDto(user.FullName, user.Email, user.Role, jwt), null);
+}
 
-    public async Task<bool> RefreshAsync(HttpRequest req, HttpResponse res)
-    {
-        var token = req.Cookies["refresh_token"];
-        if (string.IsNullOrEmpty(token)) return false;
+   public async Task<(bool, string?)> RefreshAsync(HttpRequest req, HttpResponse res)
+{
+    var token = req.Cookies["refresh_token"];
+    if (string.IsNullOrEmpty(token)) return (false, null);
 
-        var stored = await db.RefreshTokens
-            .Include(r => r.User)
-            .FirstOrDefaultAsync(r => r.Token == token
-                                   && !r.IsRevoked
-                                   && r.Expires > DateTime.UtcNow);
-        if (stored is null) return false;
+    var stored = await db.RefreshTokens
+        .Include(r => r.User)
+        .FirstOrDefaultAsync(r => r.Token == token && !r.IsRevoked && r.Expires > DateTime.UtcNow);
+    if (stored is null) return (false, null);
 
-        // revoke
-        stored.IsRevoked = true;
-        bool rememberMe = stored.Expires > DateTime.UtcNow.AddDays(1);
-        await SetTokenCookiesAsync(stored.User, res, rememberMe);
-        await db.SaveChangesAsync();
-        return true;
-    }
+    stored.IsRevoked = true;
+    bool rememberMe = stored.Expires > DateTime.UtcNow.AddDays(1);
+    var newJwt = await SetTokenCookiesAsync(stored.User, res, rememberMe);
+    await db.SaveChangesAsync();
+    return (true, newJwt);
+}
 
     // Revoke (logout)
     public async Task RevokeAsync(HttpRequest req, HttpResponse res)

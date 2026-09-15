@@ -24,8 +24,8 @@ public class AuthController(IAuthService auth) : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh()
     {
-        var ok = await auth.RefreshAsync(Request, Response);
-        return ok ? Ok() : Unauthorized(new { message = "Session expired." });
+        var (ok, token) = await auth.RefreshAsync(Request, Response);
+        return ok ? Ok(new { token }) : Unauthorized(new { message = "Session expired." });
     }
 
     [HttpPost("logout")]
@@ -46,11 +46,12 @@ public class AuthController(IAuthService auth) : ControllerBase
         User.FindFirstValue(ClaimTypes.Name)!,
         User.FindFirstValue(ClaimTypes.Email)!,
         User.FindFirstValue(ClaimTypes.Role)!
+        
     ));
 
     [ApiController]
     [Route("api/auditlog")]
-    [Authorize(Roles = "admin,purchase")]   
+    [Authorize(Roles = "admin,purchase")]
     public class AuditLogController(IAuditLogService auditSvc) : ControllerBase
     {
         [HttpGet]
