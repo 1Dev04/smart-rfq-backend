@@ -37,6 +37,24 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
         Path = "/api/auth",
     };
 
+    // ── options สำหรับ "ลบ" cookie โดยเฉพาะ ──
+    // ต้องมี SameSite/Secure ตรงกับตอน Append เป๊ะ ไม่งั้น browser (โดยเฉพาะ Chrome)
+    // จะมองว่าเป็นคำสั่งลบคนละ cookie กัน แล้วไม่ลบให้จริง — Expires ไม่ต้องใส่ เพราะ
+    // Cookies.Delete จะไปเซ็ตเป็นวันที่ในอดีตให้เองอัตโนมัติอยู่แล้ว
+    private static CookieOptions DeleteAccessCookieOpts => new()
+    {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.None,
+    };
+    private static CookieOptions DeleteRefreshCookieOpts => new()
+    {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.None,
+        Path = "/api/auth", // ต้องตรงกับ Path ตอน Append เป๊ะ ไม่งั้นลบไม่ออกแน่นอน
+    };
+
     // Login 
     public async Task<(AuthResponseDto?, string?)> LoginAsync(LoginDto dto, HttpResponse res)
     {
@@ -44,8 +62,9 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
         if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             return (null, "Invalid email or password");
 
-        await SetTokenCookiesAsync(user, res, dto.RememberMe);
+        var jwt = await SetTokenCookiesAsync(user, res, dto.RememberMe);
 
+  
         return (new AuthResponseDto(user.FullName, user.Email, user.Role), null);
     }
 
@@ -79,12 +98,14 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
             if (stored is not null) stored.IsRevoked = true;
             await db.SaveChangesAsync();
         }
-        res.Cookies.Delete("access_token");
-        res.Cookies.Delete("refresh_token");
+
+        // ── ต้องระบุ CookieOptions ให้ตรงกับตอน Append เป๊ะ ไม่งั้น Chrome ไม่ยอมลบให้ ──
+        res.Cookies.Delete("access_token", DeleteAccessCookieOpts);
+        res.Cookies.Delete("refresh_token", DeleteRefreshCookieOpts);
     }
 
     // Helper
-    private async Task SetTokenCookiesAsync(User user, HttpResponse res, bool rememberMe)
+    private async Task<string> SetTokenCookiesAsync(User user, HttpResponse res, bool rememberMe)
     {
         var jwt = GenerateJwt(user);
         var refreshExpiry = rememberMe
@@ -103,6 +124,8 @@ public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
 
         res.Cookies.Append("access_token", jwt, AccessCookieOpts);
         res.Cookies.Append("refresh_token", refresh.Token, RefreshCookieOpts(rememberMe));
+
+        return jwt;
     }
 
     private string GenerateJwt(User user)
