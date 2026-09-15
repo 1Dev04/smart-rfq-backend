@@ -16,7 +16,6 @@ public interface IAuthService
     Task RevokeAsync(HttpRequest request, HttpResponse response);
 }
 
-public record AuthResponseDto(string FullName, string Email, string Role, string? Token = null); 
 
 
 public class AuthService(AppDbContext db, IConfiguration cfg) : IAuthService
