@@ -49,6 +49,10 @@ builder.Services.AddSingleton(sp =>
     return new Cloudinary(account);
 });
 
+// หมายเหตุ: ไม่ต้อง register อะไรเพิ่มสำหรับ Gmail API ครับ
+// EmailService สร้าง GmailService ขึ้นมาเองข้างในฟังก์ชัน โดยอ่านค่า
+// GmailApi:ClientId / ClientSecret / RefreshToken / SenderEmail จาก IConfiguration ตรงๆ
+
 // Auth Service 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -152,7 +156,7 @@ app.UseResponseCaching();
 app.UseRateLimiter();
 app.UseAuthentication(); 
 app.UseAuthorization();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/", () => Results.Ok(new { status = "Started Backend" }));
 app.MapControllers();
 app.UseStaticFiles();
 app.Run();

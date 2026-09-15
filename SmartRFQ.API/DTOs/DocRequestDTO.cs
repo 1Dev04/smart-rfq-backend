@@ -45,7 +45,8 @@ public class CreateDocRequestItemDto
     public IFormFile? AttachEtc { get; set; }
 }
 
-public record ItemVendorEmailDto(int ItemId, List<string> Emails);
+public record VendorRecipientDto(string? VendorName, string Email);
+public record ItemVendorEmailDto(int ItemId, string? PrintedPdfUrl, List<VendorRecipientDto> Recipients);
 public record SendQuotationDto(List<ItemVendorEmailDto> Items);
 
 public record DocRequestListRowDto(

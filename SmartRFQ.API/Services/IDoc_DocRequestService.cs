@@ -42,6 +42,7 @@ public interface IDocRequestService
 
     Task StartCompareAsync(int docRequestId, Guid purchaserId);
     Task SaveVendorQuotesAsync(int docRequestId, int itemId, Guid purchaserId, List<VendorQuoteDto> quotes);
+
     Task<string> FinishCompareAsync(int docRequestId, Guid purchaserId);
     Task<VendorQuoteAiExtractResultDto> ExtractQuotationDataAsync(IFormFile pdfFile);
     Task<VendorQuoteAiHintResultDto> GenerateVendorHintAsync(List<VendorHintFileDto> vendorInputs);
@@ -86,7 +87,7 @@ public class DocRequestService : IDocRequestService
     }
 
     // ── Error Audit Helper ─────────────────────────────────────────
-    public const string ErrorStatus = "error"; 
+    public const string ErrorStatus = "error";
     private const int RemarkMaxLength = 255;
 
     private static string TruncateForRemark(string s) =>
@@ -141,7 +142,7 @@ public class DocRequestService : IDocRequestService
 
             doc.Status = "user_pending";
             doc.UpdatedAt = DateTime.UtcNow;
-            
+
             try { await _audit.LogAsync(doc.RfqNo, doc.Status, "user", await GetUserEmailAsync(userId), await GetUserEmailAsync(doc.PurchaserId), "User confirmed selection"); } catch { }
 
             await db.SaveChangesAsync();
@@ -353,7 +354,6 @@ public class DocRequestService : IDocRequestService
     }
 
 
-
     public async Task SendQuotationAsync(int docRequestId, List<ItemVendorEmailDto> items, IEmailService emailSvc)
     {
         DocRequest? doc = null;
@@ -366,40 +366,69 @@ public class DocRequestService : IDocRequestService
                 .FirstOrDefaultAsync(d => d.Id == docRequestId)
                 ?? throw new KeyNotFoundException("ไม่พบ RFQ");
 
-
             if (doc.Status != "waiting_quotation")
                 throw new InvalidOperationException($"ไม่สามารถส่ง Quotation ได้ สถานะปัจจุบัน: {doc.Status}");
 
-            var vendorToItems = new Dictionary<string, List<int>>();
+            // ── เก็บ vendorName คู่กับ email + itemIds ที่เกี่ยวข้อง ──
+            var vendorToItems = new Dictionary<string, (string? VendorName, List<int> ItemIds)>();
             foreach (var row in items)
-                foreach (var email in row.Emails.Distinct())
+                foreach (var recipient in row.Recipients.DistinctBy(r => r.Email))
                 {
-                    if (!vendorToItems.TryGetValue(email, out var list))
-                        vendorToItems[email] = list = new List<int>();
-                    if (!list.Contains(row.ItemId)) list.Add(row.ItemId);
+                    if (!vendorToItems.TryGetValue(recipient.Email, out var entry))
+                    {
+                        entry = (recipient.VendorName, new List<int>());
+                        vendorToItems[recipient.Email] = entry;
+                    }
+                    if (!entry.ItemIds.Contains(row.ItemId)) entry.ItemIds.Add(row.ItemId);
                 }
 
+            // ── PrintedPdfUrl ต่อ item — เก็บไว้ map เพื่อดึงใช้ตอนสร้าง attachments ──
+            var printedPdfByItem = items.ToDictionary(r => r.ItemId, r => r.PrintedPdfUrl);
 
             if (vendorToItems.Count > 0)
             {
                 var requesterEmail = doc.Requester?.Email ?? throw new InvalidOperationException("ไม่พบอีเมล Requester");
                 var purchaserEmail = doc.Purchaser?.Email ?? throw new InvalidOperationException("ไม่พบอีเมล Purchaser");
 
-                foreach (var (vendorEmail, itemIds) in vendorToItems)
+                foreach (var (vendorEmail, entry) in vendorToItems)
                 {
-                    var attachmentPaths = doc.Items
-                        .Where(i => itemIds.Contains(i.Id) && i.QuotationPdfPath != null)
-                        .Select(i => i.QuotationPdfPath!)
-                        .ToList();
+                    var relevantItems = doc.Items.Where(i => entry.ItemIds.Contains(i.Id)).ToList();
+
+                    // ── สร้างไฟล์แนบแยกกันเป็นคนละก้อน ไม่รวมเป็น PDF เดียว ──
+                    var attachments = new List<EmailAttachmentRef>();
+
+                    foreach (var item in relevantItems)
+                    {
+                        // หน้าสรุป (PDF ที่ frontend generate จาก Print Summary)
+                        if (printedPdfByItem.TryGetValue(item.Id, out var printedUrl) && !string.IsNullOrWhiteSpace(printedUrl))
+                            attachments.Add(new EmailAttachmentRef("Summary", printedUrl));
+
+                        if (!string.IsNullOrWhiteSpace(item.AttachDwgPath))
+                            attachments.Add(new EmailAttachmentRef("DWG", item.AttachDwgPath));
+
+                        if (!string.IsNullOrWhiteSpace(item.AttachSpecPath))
+                            attachments.Add(new EmailAttachmentRef("Spec", item.AttachSpecPath));
+
+                        if (!string.IsNullOrWhiteSpace(item.AttachQuotationPath))
+                            attachments.Add(new EmailAttachmentRef("LastQuotation", item.AttachQuotationPath));
+
+                        if (!string.IsNullOrWhiteSpace(item.AttachEtcPath))
+                            attachments.Add(new EmailAttachmentRef("ETC", item.AttachEtcPath));
+                    }
 
                     await emailSvc.SendQuotationRequestAsync(
-                        vendorEmail, doc.RfqNo, requesterEmail, purchaserEmail, attachmentPaths);
+                        toEmail: vendorEmail,
+                        vendorName: entry.VendorName,
+                        rfqNo: doc.RfqNo,
+                        requester: requesterEmail,
+                        purchaser: purchaserEmail,
+                        attachments: attachments);
                 }
             }
 
             doc.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-           
+
             try { await _audit.LogAsync(doc.RfqNo, doc.Status, "purchase", await GetUserEmailAsync(doc.PurchaserId), await GetUserEmailAsync(doc.RequesterId), "Send Quotation Requests"); } catch { }
         }
         catch (Exception ex)
@@ -408,6 +437,8 @@ public class DocRequestService : IDocRequestService
             throw;
         }
     }
+
+    
     private static DateTime? ParseThaiDateToUtc(string? raw)
     {
         if (!DateTime.TryParse(raw, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
@@ -499,6 +530,9 @@ public class DocRequestService : IDocRequestService
 
         return url;
     }
+
+
+
     // ── quotation pdf ─────────────────────────────────────────────────
     public async Task<string?> UploadItemQuotationPdfAsync(int id, int itemId, IFormFile file)
     {
@@ -648,7 +682,7 @@ public class DocRequestService : IDocRequestService
             if (doc.Status != "user_draft")
                 throw new InvalidOperationException($"แก้ไข Draft ไม่ได้ สถานะปัจจุบัน: {doc.Status}");
 
-             // Audit: update draft items
+            // Audit: update draft items
             try { await _audit.LogAsync(doc.RfqNo, doc.Status, "user", await GetUserEmailAsync(userId), await GetUserEmailAsync(doc.PurchaserId), "Update Draft Items"); } catch { }
 
             doc.UpdatedAt = DateTime.UtcNow;
@@ -1491,7 +1525,7 @@ public class DocRequestService : IDocRequestService
             int selectedId;
             decimal? selectedPrice = null;
 
-            
+
             var conn = db.Database.GetDbConnection();
             if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
 
@@ -1598,7 +1632,7 @@ public class DocRequestService : IDocRequestService
             try { await _audit.LogAsync(doc.RfqNo, "cost_saving", "purchase", await GetUserEmailAsync(purchaserId), await GetUserEmailAsync(doc.RequesterId), "Confirm Cost Saving"); } catch { }
 
 
-            
+
 
             return doc.RfqNo;
         }
@@ -1654,7 +1688,7 @@ public class DocRequestService : IDocRequestService
             // Audit: purchase confirm approved -> finished
             try { await _audit.LogAsync(doc.RfqNo, "purchase_confirm", "purchase", await GetUserEmailAsync(purchaserId), await GetUserEmailAsync(doc.RequesterId), $"Approve purchase confirm Item:{itemId}"); } catch { }
             try { await _audit.LogAsync(doc.RfqNo, "finish", "purchase", await GetUserEmailAsync(purchaserId), await GetUserEmailAsync(doc.RequesterId), $"Finish purchase confirm Item:{itemId}"); } catch { }
-    
+
             return doc.RfqNo;
         }
         catch (Exception ex)
